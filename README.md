@@ -1,6 +1,6 @@
 # CSCE-452-Project-3
 
-WIP (I think this works): To add the file to your ROS2 package
+WIP (I think this works): To add the file to your ROS2 package  
 First go into ~/ros2_ws/src and run the following:
 
 ```bash
