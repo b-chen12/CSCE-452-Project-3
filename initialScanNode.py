@@ -1,4 +1,3 @@
-# Reed Billedo 228005190; CSCE 452; Project 1
 import rclpy
 
 from geometry_msgs.msg import Twist
@@ -37,6 +36,33 @@ class CircleAndColorTurtle(Node):
     #     self.pub.publish(msg)
         # self.get_logger().info('Publishing: "%s"' % msg)   # can be used to output the dierection / angle of turtle in real time 
     # outputs on the console the message that was received from the topic turtle1/color_sensor
+    def getX(self, val, i, _size, angleG):
+        angle = angleG*i - 1.5646604299545288
+        angle2 = angleG*i - 1.5646604299545288
+        angle3 = 1.5646604299545288 - angleG*i
+        angle4 = 3.14159 - angleG*i
+        if(i <= _size/2):
+            x = val * math.cos(angle2) 
+            y = val * math.sin(angleG * i) 
+        else:
+            angle = 1.5646604299545288 - angleG*i
+            x = val * math.cos(angle4) 
+            y = val * math.sin(angle * i) 
+        return x
+    
+    def getY(self, val, i, _size, angleG):
+        angle = 1.5646604299545288 - angleG*i
+        angle2 = angleG*i - 1.5646604299545288
+        angle4 = 3.14159 - angleG*i
+        if(i <= _size/2):
+            x = val * math.cos(angle2)
+            y = val * math.sin(angle2) 
+        else:
+            
+            x = val * math.cos(angle4) 
+            y = val * math.sin(angle4) 
+        return y
+    
     def parse(self, msg): 
         global data
         if not data:
@@ -45,21 +71,48 @@ class CircleAndColorTurtle(Node):
             previousData = data
             data = msg.ranges
 
-            for i in range(len(data)):
+            
+
+            for i in range(len(data)-5):
+                count = 0
+                xs = []
+                ys = []
                 if(previousData[i] == float("inf") and data[i] != float("inf")):
+                    count += 1
+                    xs.append(self.getX(data[i], i, len(data), msg.angle_increment))
+                    ys.append(self.getY(data[i], i, len(data), msg.angle_increment))
+                if(previousData[i+1] == float("inf") and data[i+1] != float("inf")):
+                    count += 1
+                    xs.append(self.getX(data[i+1], i+1, len(data), msg.angle_increment))
+                    ys.append(self.getY(data[i+1], i+1, len(data), msg.angle_increment))
+                if(previousData[i+2] == float("inf") and data[i+2] != float("inf")):
+                    count += 1
+                    xs.append(self.getX(data[i+2], i+2, len(data), msg.angle_increment))
+                    ys.append(self.getY(data[i+2], i+2, len(data), msg.angle_increment))
+                if(previousData[i+3] == float("inf") and data[i+3] != float("inf")):
+                    count += 1
+                    xs.append(self.getX(data[i+3], i+3, len(data), msg.angle_increment))
+                    ys.append(self.getY(data[i+3], i+3, len(data), msg.angle_increment))
+                if(previousData[i+4] == float("inf") and data[i+4] != float("inf")):
+                    count += 1
+                    xs.append(self.getX(data[i+4], i+4, len(data), msg.angle_increment))
+                    ys.append(self.getY(data[i+4], i+4, len(data), msg.angle_increment))
+                if(count >= 3):
                     self.get_logger().info('Message from /scan: "%s"' % msg.header )
+                    totalx = 0
+                    totaly = 0
+                    for v in xs:
+                        totalx += v
+                    for v2 in ys:
+                        totaly += v2
+                    totalx /= count
+                    totaly /= count
                     curPoint = Point32()
                     
-                    if(i <= len(data)/2):
-                        x = msg.ranges[i] * math.sin(msg.angle_increment * i) * -1
-                        y = msg.ranges[i] * math.cos(msg.angle_increment * i) * -1
-                    else:
-                        angle = 1.5646604299545288 - msg.angle_increment*i
-                        x = msg.ranges[i] * math.sin(angle * i) * -1
-                        y = msg.ranges[i] * math.cos(angle * i) * -1
+                    
                     z = 0.0
-                    curPoint.x = x
-                    curPoint.y = y
+                    curPoint.x = totalx
+                    curPoint.y = totaly
                     curPoint.z = z
                     temp = PointCloud()
                     temp.header.frame_id = msg.header.frame_id
