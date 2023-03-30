@@ -1,0 +1,3 @@
+[console_scripts]
+track = project3.track:main
+
