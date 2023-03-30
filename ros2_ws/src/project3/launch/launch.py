@@ -7,34 +7,36 @@ from launch.substitutions import *
 from launch.event_handlers import *
 from launch.events import *
 
+
+# To run this file use ros2 launch project3 launch.py
+
 def generate_launch_description():
     # Argument Object That Takes in Launch Arguments
-    # Default Value can be changed
-    # We can also have multiple arguments I believe!
-    arg = DeclareLaunchArgument('arg_name',
-                                default_value='test')
+    bag_in = LaunchConfiguration('bag_in')
+    bag_out = LaunchConfiguration('bag_out')
+
+    bag_in_arg = DeclareLaunchArgument(
+                            'bag_in',
+                            default_value='bags/example1')
+    
+    bag_out_arg = DeclareLaunchArgument(
+                            'bag_out',
+                            default_value='bags/out/test')
 
     # This launches a turtlesim node
-    # We'll probably need to change this later to our nodes
+    # Should probably be a node dealing with /scan though
     node = Node(package = 'turtlesim',
                 executable = 'turtlesim_node')
 
-    # We can use the following in places we're we would normally hard code things,
-    # I guess things that rely on arguments:
+    # This starts playing the bag on launch
+    play_bag = ExecuteProcess(cmd = ['ros2', 'bag', 'play', bag_in])
 
-    # LaunchConfiguration('arg_name')
+    # This terminates the program once the bag is done playing
+    event_handler = OnProcessExit(target_action = play_bag,
+                                  on_exit = [EmitEvent(event = Shutdown())])
+    
+    terminate_at_end = RegisterEventHandler(event_handler)
 
-    # The following can also be used in place of nodes:
-    # Will probably come in handy with playing our bags
-    ep = ExecuteProcess(cmd = ['ros2', 'bag', 'play', 'bags/example1'])
-
-    # This will help with stopping playback when the original bag file is completed,
-    # It also has to be added to our LaunchDescription object
-
-    # event_handler = OnProcessExit(target_action = your_action,
-    #                               on_exit = [EmitEvent(event = Shutdown())])
-    # terminate_at_end = RegisterEventHandler(event_handler)
-
-    ld = LaunchDescription([ arg, node ])
+    ld = LaunchDescription([ bag_in_arg, bag_out_arg, node, play_bag, terminate_at_end])
 
     return ld
