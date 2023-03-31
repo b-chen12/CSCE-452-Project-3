@@ -18,15 +18,18 @@ class ScanSubscriber(Node):
     def __init__(self):
         super().__init__('ScanSubscriber')
         self.sub = self.create_subscription(LaserScan, '/scan', self.listener_callback, 10)
-        self.point_history = [] # holds previously seen PointClouds
 
         # Move this to the other node later, here for testing!
         self.person_location = self.create_publisher(PointCloud, '/person_locations', 10)
+        self.person_count_tot = self.create_publisher(Int64, '/person_count_total', 10)
+        self.prevAverages = []
+        self.averages = []
+        self.walls = []
+        self.total = []
 
     def listener_callback(self, msg):
         # Currently just prints out the values it heard
-        cluster_centers = self.cluster(msg)
-        self.filter_walls(cluster_centers, msg)
+        self.cluster(msg)
 
     def polar_to_cartesian(self, msg):
         # Turns the lidar data from polar coordinates to cartesian
@@ -34,7 +37,7 @@ class ScanSubscriber(Node):
         angle_min = msg.angle_min
         angle_increment = msg.angle_increment
 
-        cartesian_array = [] # array contains x and y values
+        cartesian_array = [] # array contain x and y values
 
         for i in range(len(val_array)):
             angle = angle_min + (i * angle_increment) # angle in polar coordinates (r, theta)
@@ -82,6 +85,7 @@ class ScanSubscriber(Node):
         for point in cartesian_array:
             if tuple(point) in visited:
                 continue
+
             visited.add(tuple(point))
 
             neighbors = []
@@ -140,42 +144,6 @@ class ScanSubscriber(Node):
         
         return cluster_centers
     
-    def filter_walls(self, cluster_centers, msg):
-        # This function will detect if a PointCloud is a wall or not
-        # It will do so by seeing if the PointCloud is moving too much
-        # So basically with each new scan, the guess should get better
-        # If a PointCloud stays relatively still then it's a wall
-        # If not, then it's a person
-
-        # Let's try using the moving average
-        # We have to store the previously seen positions and then compare them
-        # We can try two for now
-
-        # For testing rn, to see where the clusters are at, making a PointCloud
-        pointcloud_msg = PointCloud()
-        pointcloud_msg.header = msg.header
-
-        # Adds in all of the points to the PointCloud message
-        for coords in cluster_centers:
-            pointcloud_msg.points.append(Point32(x = coords[0],
-                                                 y = coords[1],
-                                                 z = 0.0
-                                                 ))
-        
-        self.person_location.publish(pointcloud_msg)
-
-        # After we find the clusters, the goal is to see which clusters don't move so much
-        # Once we find those then we can ignore them
-        # The guess should get better and better over time!
-        
-        moving_avg = []
-
-        # If previous points exist then do this
-        if self.point_history:
-            print("PLACEHOLDER: Do some moving average stuff here!")
-        
-        return moving_avg
-    
     def cluster(self, msg):
         # Finds clusters, and then publish the clusters that are found as PointClouds
 
@@ -183,12 +151,71 @@ class ScanSubscriber(Node):
         cartesian_array = self.polar_to_cartesian(msg)
 
         # Now we use DBScan in order to find the clusters of points!
-        clusters = self.dbscan(cartesian_array, 1, 5)
+        clusters = self.dbscan(cartesian_array, 0.8, 3)
 
         # Finds the center of the clusters
         cluster_centers = self.find_cluster_center(clusters)
+
+        # For testing rn, to see where the clusters are at, making a PointCloud
+        pointcloud_msg = PointCloud()
+        pointcloud_msg.header = msg.header
+
+
+        # First iteration, get the walls of the map
+        if not self.walls:
+            for cluster in clusters:
+                xa = sum([point[0] for point in cluster])/len(cluster)
+                ya = sum([point[1] for point in cluster])/len(cluster)
+ 
+                self.walls.append([xa,ya])
+
+        # Future iterations, for each cluster check if it is within range of a wall, if it is break; if it is not at it to the Point Cloud
+        else:
+            for cluster in clusters:
+                xa = sum([point[0] for point in cluster])/len(cluster)
+                ya = sum([point[1] for point in cluster])/len(cluster)
+                z=0.0
+                isWall = False
+                for wall in self.walls:
+                    # Checking if within range of wall
+                    if(self.euclidean_distance((xa,ya), wall) <= 0.8):
+                        isWall = True
+                        #self.walls.append((xa,ya))
+                        # wall[0]=(wall[0]+xa)/2
+                        # wall[1]=(wall[1]+ya)/2 
+                        break
+                if(isWall == False):
+
+                    # Storing people; go through stored people to see if current person is within range of someone, this would mean they are the same person
+                    isNew = True
+                    for i, center in enumerate(self.total):
+                        if(self.euclidean_distance(center,[xa,ya])<=1):
+                            isNew = False
+                            self.total[i] = [xa,ya]
+                            break
+                    # New person, add to list
+                    if(isNew == True):
+                        self.total.append([xa,ya])
+                        
+
+                    pointcloud_msg.points.append(Point32(x=xa, 
+                                                            y=ya, 
+                                                            z=0.0))
+        # Adds in all of the points to the PointCloud message
+        total = Int64()
+        total.data = len(self.total)
+        self.person_location.publish(pointcloud_msg)
+        self.person_count_tot.publish(total)
+        self.get_logger().info('TOTAL: "%s"' % total)
+        #self.get_logger().info('Current TOTAL: ' "%s" % len(pointcloud_msg.points))
+
+        # After we find the clusters, the goal is to see which clusters don't move so much
+        # Once we find those then we can ignore them
+        # The guess should get better and better over time!
+
+        #self.get_logger().info('I heard: "%s"' % str(cluster_centers))
         
-        return cluster_centers
+        return
 
 class TopicPublisher(Node):
     # This node publishes onto the three separate topics
