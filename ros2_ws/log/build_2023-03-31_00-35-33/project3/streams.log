@@ -1,0 +1,26 @@
+[0.429s] Invoking command in '/home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/src/project3': PYTHONPATH=/home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/build/project3/prefix_override:/home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/install/project3/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base ../../build/project3 build --build-base /home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/build/project3/build install --record /home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/build/project3/install.log --single-version-externally-managed
+[0.601s] running egg_info
+[0.602s] writing ../../build/project3/project3.egg-info/PKG-INFO
+[0.603s] writing dependency_links to ../../build/project3/project3.egg-info/dependency_links.txt
+[0.603s] writing entry points to ../../build/project3/project3.egg-info/entry_points.txt
+[0.604s] writing requirements to ../../build/project3/project3.egg-info/requires.txt
+[0.604s] writing top-level names to ../../build/project3/project3.egg-info/top_level.txt
+[0.606s] reading manifest file '../../build/project3/project3.egg-info/SOURCES.txt'
+[0.607s] writing manifest file '../../build/project3/project3.egg-info/SOURCES.txt'
+[0.607s] running build
+[0.607s] running build_py
+[0.607s] copying project3/track.py -> /home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/build/project3/build/lib/project3
+[0.608s] running install
+[0.608s] /usr/lib/python3/dist-packages/setuptools/command/install.py:34: SetuptoolsDeprecationWarning: setup.py install is deprecated. Use build and pip and other standards-based tools.
+[0.608s]   warnings.warn(
+[0.608s] running install_lib
+[0.609s] copying /home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/build/project3/build/lib/project3/track.py -> /home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/install/project3/lib/python3.10/site-packages/project3
+[0.609s] byte-compiling /home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/install/project3/lib/python3.10/site-packages/project3/track.py to track.cpython-310.pyc
+[0.610s] running install_data
+[0.611s] running install_egg_info
+[0.612s] removing '/home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/install/project3/lib/python3.10/site-packages/project3-0.0.0-py3.10.egg-info' (and everything under it)
+[0.617s] Copying ../../build/project3/project3.egg-info to /home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/install/project3/lib/python3.10/site-packages/project3-0.0.0-py3.10.egg-info
+[0.618s] running install_scripts
+[0.636s] Installing track script to /home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/install/project3/lib/project3
+[0.637s] writing list of installed files to '/home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/build/project3/install.log'
+[0.665s] Invoked command in '/home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/src/project3' returned '0': PYTHONPATH=/home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/build/project3/prefix_override:/home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/install/project3/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py egg_info --egg-base ../../build/project3 build --build-base /home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/build/project3/build install --record /home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/build/project3/install.log --single-version-externally-managed

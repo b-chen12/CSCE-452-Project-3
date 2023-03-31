@@ -19,6 +19,9 @@ class ScanSubscriber(Node):
         super().__init__('ScanSubscriber')
         self.sub = self.create_subscription(LaserScan, '/scan', self.listener_callback, 10)
 
+        # Move this to the other node later, here for testing!
+        self.person_location = self.create_publisher(PointCloud, '/person_locations', 10)
+
     def listener_callback(self, msg):
         # Currently just prints out the values it heard
         self.cluster(msg)
@@ -142,12 +145,27 @@ class ScanSubscriber(Node):
         cartesian_array = self.polar_to_cartesian(msg)
 
         # Now we use DBScan in order to find the clusters of points!
-        clusters = self.dbscan(cartesian_array, 2, 2)
+        clusters = self.dbscan(cartesian_array, 1, 5)
+
+        # Finds the center of the clusters
+        cluster_centers = self.find_cluster_center(clusters)
+
+        # For testing rn, to see where the clusters are at, making a PointCloud
+        pointcloud_msg = PointCloud()
+        pointcloud_msg.header = msg.header
+
+        # Adds in all of the points to the PointCloud message
+        for coords in cluster_centers:
+            pointcloud_msg.points.append(Point32(x = coords[0],
+                                                 y = coords[1],
+                                                 z = 0.0
+                                                 ))
+        
+        self.person_location.publish(pointcloud_msg)
 
         # After we find the clusters, the goal is to see which clusters don't move so much
         # Once we find those then we can ignore them
         # The guess should get better and better over time!
-        cluster_centers = self.find_cluster_center(clusters)
 
         self.get_logger().info('I heard: "%s"' % str(cluster_centers))
         
@@ -157,7 +175,6 @@ class TopicPublisher(Node):
     # This node publishes onto the three separate topics
     def __init__(self):
         super().__init__('ScanSubscriber')
-        self.person_location = self.create_publisher(PointCloud, '/person_locations', 10)
         self.person_count_curr = self.create_publisher(Int64, 'person_count_current', 10)
         self.person_count_tot = self.create_publisher(Int64, '/person_count_total', 10)
 
