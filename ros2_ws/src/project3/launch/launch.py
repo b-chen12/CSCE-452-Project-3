@@ -30,7 +30,7 @@ def generate_launch_description():
 
     # This records all three topics into a bag
     record_bag = ExecuteProcess(cmd = ['ros2', 'bag', 'record',
-                                            '-o', bag_out, '/person_location',
+                                            '-o', bag_out, '/person_locations',
                                             '/people_count_current',
                                             '/people_count_total'])
 
