@@ -26,7 +26,6 @@ class ScanSubscriber(Node):
     def polar_to_cartesian(self, msg):
         val_array = msg.ranges
         angle_min = msg.angle_min
-        angle_max = msg.angle_max
         angle_increment = msg.angle_increment
 
         cartesian_array = [] # array contain x and y values
@@ -37,16 +36,39 @@ class ScanSubscriber(Node):
             y = val_array[i] * math.sin(angle) # y = r * sin(theta)
 
             cartesian_array.append((x,y)) # array [(x,y), (x,y), .. (x,y)], len = 512
-        
-        return cartesian_array
+
+        # Removing inf and nan values from the array
+        clean_array = []
+
+        # Go through other array and remove values with inf or nan
+        for i in range(len(cartesian_array)):
+            if math.isnan(cartesian_array[i][0]) or math.isinf(cartesian_array[i][0]):
+                # If x = abs(inf) or nan, don't add it to the new array
+                continue
+            elif math.isnan(cartesian_array[i][1]) or math.isinf(cartesian_array[i][1]):
+                # If y = abs(inf) or nan, don't add it to the new array
+                continue
+            else:
+                # All good, add to array
+                clean_array.append(cartesian_array[i])
+
+        return clean_array
+
+    def dbscan(self, cartesian_array):
+        # This should ideally return a list of clusters
+        # Which we can then print out as PointClouds!
+        pass
     
     def cluster(self, msg):
-        # Find Clusters, and then publish the clusters that are found as PointClouds
+        # Finds clusters, and then publish the clusters that are found as PointClouds
 
         # Sets the LiDAR distance values to array
         cartesian_array = self.polar_to_cartesian(msg)
 
-        self.get_logger().info('I heard: "%s"' % str(cartesian_array))
+        # Now we use DBScan in order to find the clusters of points!
+        clusters = self.dbscan(cartesian_array)
+
+        self.get_logger().info('I heard: "%s"' % str(len(cartesian_array)))
         
         return
 
@@ -57,7 +79,6 @@ class TopicPublisher(Node):
         self.person_location = self.create_publisher(PointCloud, '/person_locations', 10)
         self.person_count_curr = self.create_publisher(Int64, 'person_count_current', 10)
         self.person_count_tot = self.create_publisher(Int64, '/person_count_total', 10)
-
 
 def main(args=None):
     rclpy.init(args=args)
