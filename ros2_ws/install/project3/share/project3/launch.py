@@ -15,19 +15,24 @@ def generate_launch_description():
     bag_in = LaunchConfiguration('bag_in')
     bag_out = LaunchConfiguration('bag_out')
 
+    # Sets up location of where the bag will be played from
     bag_in_arg = DeclareLaunchArgument(
                             'bag_in',
                             default_value='bags/example1')
     
+    # Sets up location of where the bag will be recorded too
     bag_out_arg = DeclareLaunchArgument(
                             'bag_out',
-                            default_value='bags/out/test')
+                            default_value='bags/track_result')
 
     # This starts playing the bag on launch
     play_bag = ExecuteProcess(cmd = ['ros2', 'bag', 'play', bag_in])
-    
-    # For bag recording, my guess is we need to pass in the argument
-    # Into the node we create and ros2 bag record bag_out in that node
+
+    # This records all three topics into a bag
+    record_bag = ExecuteProcess(cmd = ['ros2', 'bag', 'record',
+                                            '-o', bag_out, '/person_location',
+                                            '/people_count_current',
+                                            '/people_count_total'])
 
     # This launches the track node
     node = Node(package = 'project3',
@@ -39,6 +44,7 @@ def generate_launch_description():
     
     terminate_at_end = RegisterEventHandler(event_handler)
 
-    ld = LaunchDescription([ bag_in_arg, bag_out_arg, node, play_bag, terminate_at_end])
+    ld = LaunchDescription([ bag_in_arg, bag_out_arg, node, play_bag, terminate_at_end,
+                            record_bag ])
 
     return ld
