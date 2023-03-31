@@ -64,6 +64,12 @@ class ScanSubscriber(Node):
 
 
     def dbscan(self, cartesian_array, epsilon, min_points):
+        # This finds the clusters in our data, and is more resilient to noise
+
+        # Parameter Notes:
+        # epsilon is the radius parameter
+        # min_points is the minimum number of points in a cluster
+        
         visited = set()
         noise = set()
         clusters = []
@@ -113,7 +119,21 @@ class ScanSubscriber(Node):
                 clusters.append(list(cluster))
 
         return clusters
+    
+    def find_cluster_center(self, clusters):
+        # This function finds the center of the clusters by averaging the points
+        cluster_centers = []
 
+        for cluster in clusters:
+            x_sum = sum([point[0] for point in cluster])
+            y_sum = sum([point[1] for point in cluster])
+
+            x_mean = x_sum / len(cluster)
+            y_mean = y_sum / len(cluster)
+            
+            cluster_centers.append((x_mean, y_mean))
+        
+        return cluster_centers
     
     def cluster(self, msg):
         # Finds clusters, and then publish the clusters that are found as PointClouds
@@ -127,8 +147,9 @@ class ScanSubscriber(Node):
         # After we find the clusters, the goal is to see which clusters don't move so much
         # Once we find those then we can ignore them
         # The guess should get better and better over time!
+        cluster_centers = self.find_cluster_center(clusters)
 
-        self.get_logger().info('I heard: "%s"' % str(len(clusters)))
+        self.get_logger().info('I heard: "%s"' % str(cluster_centers))
         
         return
 
