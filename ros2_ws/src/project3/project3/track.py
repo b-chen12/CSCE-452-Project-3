@@ -18,13 +18,15 @@ class ScanSubscriber(Node):
     def __init__(self):
         super().__init__('ScanSubscriber')
         self.sub = self.create_subscription(LaserScan, '/scan', self.listener_callback, 10)
+        self.point_history = [] # holds previously seen PointClouds
 
         # Move this to the other node later, here for testing!
         self.person_location = self.create_publisher(PointCloud, '/person_locations', 10)
 
     def listener_callback(self, msg):
         # Currently just prints out the values it heard
-        self.cluster(msg)
+        cluster_centers = self.cluster(msg)
+        self.filter_walls(cluster_centers, msg)
 
     def polar_to_cartesian(self, msg):
         # Turns the lidar data from polar coordinates to cartesian
@@ -32,7 +34,7 @@ class ScanSubscriber(Node):
         angle_min = msg.angle_min
         angle_increment = msg.angle_increment
 
-        cartesian_array = [] # array contain x and y values
+        cartesian_array = [] # array contains x and y values
 
         for i in range(len(val_array)):
             angle = angle_min + (i * angle_increment) # angle in polar coordinates (r, theta)
@@ -138,17 +140,16 @@ class ScanSubscriber(Node):
         
         return cluster_centers
     
-    def cluster(self, msg):
-        # Finds clusters, and then publish the clusters that are found as PointClouds
+    def filter_walls(self, cluster_centers, msg):
+        # This function will detect if a PointCloud is a wall or not
+        # It will do so by seeing if the PointCloud is moving too much
+        # So basically with each new scan, the guess should get better
+        # If a PointCloud stays relatively still then it's a wall
+        # If not, then it's a person
 
-        # Sets the LiDAR distance values to array
-        cartesian_array = self.polar_to_cartesian(msg)
-
-        # Now we use DBScan in order to find the clusters of points!
-        clusters = self.dbscan(cartesian_array, 1, 5)
-
-        # Finds the center of the clusters
-        cluster_centers = self.find_cluster_center(clusters)
+        # Let's try using the moving average
+        # We have to store the previously seen positions and then compare them
+        # We can try two for now
 
         # For testing rn, to see where the clusters are at, making a PointCloud
         pointcloud_msg = PointCloud()
@@ -166,10 +167,28 @@ class ScanSubscriber(Node):
         # After we find the clusters, the goal is to see which clusters don't move so much
         # Once we find those then we can ignore them
         # The guess should get better and better over time!
-
-        self.get_logger().info('I heard: "%s"' % str(cluster_centers))
         
-        return
+        moving_avg = []
+
+        # If previous points exist then do this
+        if self.point_history:
+            print("PLACEHOLDER: Do some moving average stuff here!")
+        
+        return moving_avg
+    
+    def cluster(self, msg):
+        # Finds clusters, and then publish the clusters that are found as PointClouds
+
+        # Sets the LiDAR distance values to array
+        cartesian_array = self.polar_to_cartesian(msg)
+
+        # Now we use DBScan in order to find the clusters of points!
+        clusters = self.dbscan(cartesian_array, 1, 5)
+
+        # Finds the center of the clusters
+        cluster_centers = self.find_cluster_center(clusters)
+        
+        return cluster_centers
 
 class TopicPublisher(Node):
     # This node publishes onto the three separate topics
