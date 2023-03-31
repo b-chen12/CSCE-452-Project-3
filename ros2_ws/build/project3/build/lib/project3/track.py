@@ -20,11 +20,35 @@ class ScanSubscriber(Node):
         self.sub = self.create_subscription(LaserScan, '/scan', self.listener_callback, 10)
 
     def listener_callback(self, msg):
-        self.get_logger().info('I heard: "%s"' % msg.ranges)
-    
-    def parse(msg):
-        pass
+        # Currently just prints out the values it heard
+        self.cluster(msg)
 
+    def polar_to_cartesian(self, msg):
+        val_array = msg.ranges
+        angle_min = msg.angle_min
+        angle_max = msg.angle_max
+        angle_increment = msg.angle_increment
+
+        cartesian_array = [] # array contain x and y values
+
+        for i in range(len(val_array)):
+            angle = angle_min + (i * angle_increment) # angle in polar coordinates (r, theta)
+            x = val_array[i] * math.cos(angle) # x = r * cos(theta)
+            y = val_array[i] * math.sin(angle) # y = r * sin(theta)
+
+            cartesian_array.append((x,y)) # array [(x,y), (x,y), .. (x,y)], len = 512
+        
+        return cartesian_array
+    
+    def cluster(self, msg):
+        # Find Clusters, and then publish the clusters that are found as PointClouds
+
+        # Sets the LiDAR distance values to array
+        cartesian_array = self.polar_to_cartesian(msg)
+
+        self.get_logger().info('I heard: "%s"' % str(cartesian_array))
+        
+        return
 
 class TopicPublisher(Node):
     # This node publishes onto the three separate topics

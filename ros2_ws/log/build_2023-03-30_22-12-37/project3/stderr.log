@@ -1,0 +1,7 @@
+/usr/lib/python3/dist-packages/setuptools/command/install.py:34: SetuptoolsDeprecationWarning: setup.py install is deprecated. Use build and pip and other standards-based tools.
+  warnings.warn(
+  File "/home/vboxuser/Desktop/CSCE 452/CSCE-452-Project-3/ros2_ws/install/project3/lib/python3.10/site-packages/project3/track.py", line 35
+    self.get_logger().info('I heard: "%s"' % len(values_array[0])))
+                                                                  ^
+SyntaxError: unmatched ')'
+
