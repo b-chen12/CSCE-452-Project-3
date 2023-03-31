@@ -144,23 +144,10 @@ class ScanSubscriber(Node):
         
         return cluster_centers
     
-    def cluster(self, msg):
-        # Finds clusters, and then publish the clusters that are found as PointClouds
-
-        # Sets the LiDAR distance values to array
-        cartesian_array = self.polar_to_cartesian(msg)
-
-        # Now we use DBScan in order to find the clusters of points!
-        clusters = self.dbscan(cartesian_array, 0.8, 3)
-
-        # Finds the center of the clusters
-        cluster_centers = self.find_cluster_center(clusters)
-
+    def wall_filter(self, clusters, msg):
         # For testing rn, to see where the clusters are at, making a PointCloud
         pointcloud_msg = PointCloud()
         pointcloud_msg.header = msg.header
-
-
         # First iteration, get the walls of the map
         if not self.walls:
             for cluster in clusters:
@@ -209,9 +196,20 @@ class ScanSubscriber(Node):
         self.get_logger().info('TOTAL: "%s"' % total)
         #self.get_logger().info('Current TOTAL: ' "%s" % len(pointcloud_msg.points))
 
-        # After we find the clusters, the goal is to see which clusters don't move so much
-        # Once we find those then we can ignore them
-        # The guess should get better and better over time!
+    def cluster(self, msg):
+        # Finds clusters, and then publish the clusters that are found as PointClouds
+
+        # Sets the LiDAR distance values to array
+        cartesian_array = self.polar_to_cartesian(msg)
+
+        # Now we use DBScan in order to find the clusters of points!
+        clusters = self.dbscan(cartesian_array, 0.8, 3)
+
+        # Finds the center of the clusters
+        # cluster_centers = self.find_cluster_center(clusters)
+
+        # Parses out the walls and deals with PointCloud stuff
+        self.wall_filter(clusters, msg)
 
         #self.get_logger().info('I heard: "%s"' % str(cluster_centers))
         
