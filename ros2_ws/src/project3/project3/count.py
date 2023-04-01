@@ -8,10 +8,11 @@ from rclpy.node import Node
 from sensor_msgs.msg import PointCloud
 from geometry_msgs.msg import Point32
 from std_msgs.msg import Float32MultiArray
-class TopicPublisher(Node):
+
+class FilterAndCount(Node):
     # This node publishes onto the three separate topics
     def __init__(self):
-        super().__init__('ScanSubscriber')
+        super().__init__('FilterAndCount')
         self.cluster_receiver = self.create_subscription(Float32MultiArray, '/clusters', self.listener_callback, 10)
         self.laser_sub = self.create_subscription(LaserScan, '/scan', self.laser_info, 10)
         
@@ -19,8 +20,7 @@ class TopicPublisher(Node):
         self.person_count_tot = self.create_publisher(Int64, '/people_count_total', 10)
         self.person_location = self.create_publisher(PointCloud, '/person_locations', 10)
         self.laser_msg = None
-        self.prevAverages = []
-        self.averages = []
+
         self.walls = []
         self.total = []
         
@@ -63,17 +63,21 @@ class TopicPublisher(Node):
 
         return coords
 
-    def euclidean_distance(self, p1, p2):
-        # Finds the distance between two points
-        x1, y1 = p1[0], p1[1]
-        x2, y2 = p2[0], p2[1]
+    # Gets distance between two points
+    def distance_formula(self, p1, p2):
+        
+        x1 = p1[0]
+        y1 = p1[1]
+        x2 = p2[0]
+        y2 = p2[1]
 
         return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
-    def wall_filter(self, clusters, msg):
-        # For testing rn, to see where the clusters are at, making a PointCloud
+    def wall_filter_total_count(self, clusters, msg):
+        
         pointcloud_msg = PointCloud()
         pointcloud_msg.header = msg.header
+
         # First iteration, get the walls of the map
         if not self.walls:
             # Finding the moving average
@@ -91,31 +95,65 @@ class TopicPublisher(Node):
                 ya = sum([point[1] for point in cluster])/len(cluster)
                 z=0.0
                 isWall = False
+
                 for wall in self.walls:
                     # Checking if within range of wall
                     if(self.euclidean_distance((xa,ya), wall) <= 0.8):
                         isWall = True
-                        #self.walls.append((xa,ya))
-                        # wall[0]=(wall[0]+xa)/2
-                        # wall[1]=(wall[1]+ya)/2 
                         break
+
                 if(isWall == False):
-
-                    # Storing people; go through stored people to see if current person is within range of someone, this would mean they are the same person
+                   # Storing people; go through stored people to see if current person is within range of someone, this would mean they are the same person
                     isNew = True
-                    for i, center in enumerate(self.total):
-                        if(self.euclidean_distance(center,[xa,ya])<=1):
-                            isNew = False
-                            self.total[i] = [xa,ya]
-                            break
-                    # New person, add to list
-                    if(isNew == True):
-                        self.total.append([xa,ya])
-                        
+                    for i in range(len(self.people)):
+                        dist =self.euclidean_distance([self.people[i][0], self.people[i][1]],[xa,ya])
+                        dist2 =self.euclidean_distance([self.people[i][8], self.people[i][9]],[xa,ya])
+                        angle = math.acos((self.people[i][8]-xa)/dist2)*180/math.pi
+                        if(self.people[i][10]==0):
+                            self.people[i][10]=angle
+                        sec = msg.header.stamp.sec
+                        nanosec  = msg.header.stamp.nanosec
+                        time2 = str(sec) + "." + str(nanosec)
+                        currTime = float(time2)
 
-                    pointcloud_msg.points.append(Point32(x=xa, 
-                                                            y=ya, 
-                                                            z=0.0))
+                        if(dist2  <=0.3 and abs(angle-self.people[i][10])<=90): #and self.people[i][7] == 0):
+                            isNew = False
+                            deltax = self.euclidean_distance([self.people[i][0], self.people[i][1]],[xa,ya])
+                            deltay = abs(self.people[i][2] - currTime)
+                            velocity = deltax/deltay
+                            self.people[i][3] = velocity
+                            self.people[i][5]=currTime
+                            self.people[i][4]= True
+                            self.people[i][8]=xa
+                            self.people[i][9]= ya
+                            self.people[i][10]=angle
+                            break
+                        elif(abs(self.people[i][3]*(abs(currTime-self.people[i][5])-dist2))<=0.4):
+                            isNew = False
+
+                            deltax = self.euclidean_distance([self.people[i][0], self.people[i][1]],[xa,ya])
+                            deltay = abs(self.people[i][2] - currTime)
+
+                            velocity = deltax/deltay
+                            self.people[i][3] = velocity
+                            self.people[i][5]=currTime
+                            self.people[i][4]= True
+                            self.people[i][8]=xa
+                            self.people[i][9]= ya
+                    
+                    if(isNew == True):
+                        sec = msg.header.stamp.sec
+                        nanosec  = msg.header.stamp.nanosec
+                        time = str(sec) + "." + str(nanosec)
+                        self.people[self.id] = [xa,ya,float(time),0,True,0,0,0,xa,ya,0]
+                        self.id+=1
+                    
+                    pointcloud_msg.points.append(Point32(x=xa,y=ya,z=0.0))
+
+        
+
+        for i in range(len(self.people)):
+            self.people[i][4] = False
         # Adds in all of the points to the PointCloud message
         total = Int64()
         total.data = len(self.total)
@@ -129,12 +167,12 @@ class TopicPublisher(Node):
 
         self.get_logger().info('TOTAL: "%s"' % total)
 
-        #self.get_logger().info('Current TOTAL: ' "%s" % len(pointcloud_msg.points))
+      
 
 def main(args=None):
     rclpy.init(args=args)
 
-    topic_pub = TopicPublisher()
+    topic_pub = FilterAndCount()
 
     rclpy.spin(topic_pub)
 
