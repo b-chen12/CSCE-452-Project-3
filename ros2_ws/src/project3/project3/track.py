@@ -59,12 +59,10 @@ class ScanSubscriber(Node):
         clusters = self.cluster(msg)
 
         # Creating the message
-        msg = Float32MultiArray()
-        msg.data = self.cluster_to_msg(clusters)
+        msg_cluster = Float32MultiArray()
+        msg_cluster.data = self.cluster_to_msg(clusters)
 
-        self.cluster_pub.publish(msg)
-
-        # self.get_logger().info('TOTAL: "%s"' % str(clusters))
+        self.cluster_pub.publish(msg_cluster)
 
     def polar_to_cartesian(self, msg):
         # Turns the lidar data from polar coordinates to cartesian

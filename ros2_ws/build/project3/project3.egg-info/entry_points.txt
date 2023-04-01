@@ -1,3 +1,4 @@
 [console_scripts]
+count = project3.count:main
 track = project3.track:main
 
