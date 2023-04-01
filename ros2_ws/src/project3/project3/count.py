@@ -28,8 +28,9 @@ class TopicPublisher(Node):
     def listener_callback(self, msg):
         clusters = self.msg_to_clusters(msg.data) # will be passed into wall_filter
 
-        # Issue is here, msg needs to be from the laser publisher but I'm not sure how to get it
-        self.wall_filter(clusters, self.laser_msg)
+        # If the laser_msg isn't updated then skip this, try again on the next call
+        if self.laser_msg != None:
+            self.wall_filter(clusters, self.laser_msg)
     
     def laser_info(self, msg):
         # This sets the laser_msg property to the LaserScan message
