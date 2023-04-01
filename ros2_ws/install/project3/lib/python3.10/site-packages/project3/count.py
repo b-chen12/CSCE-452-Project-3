@@ -134,8 +134,10 @@ class FilterAndCount(Node):
 
                             deltax = self.euclidean_distance([self.people[i][0], self.people[i][1]],[xa,ya])
                             deltay = abs(self.people[i][2] - currTime)
-
-                            velocity = deltax/deltay
+                            if deltay != 0:
+                                velocity = deltax/deltay
+                            else:
+                                velocity = velocity
                             self.people[i][3] = velocity
                             self.people[i][5]=currTime
                             self.people[i][4]= True
