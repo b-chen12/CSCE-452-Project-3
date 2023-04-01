@@ -1,15 +1,13 @@
 import rclpy
+import numpy as np
+import math
 
-from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
 from example_interfaces.msg import Int64
 from rclpy.node import Node
-from turtlesim.msg import Color
 from sensor_msgs.msg import PointCloud
 from geometry_msgs.msg import Point32
-import numpy as np
-import math
-import statistics
+from std_msgs.msg import Float32MultiArray
 
 # To install this into ros2 packages, run 'source install/setup.bash'
 
@@ -19,17 +17,54 @@ class ScanSubscriber(Node):
         super().__init__('ScanSubscriber')
         self.sub = self.create_subscription(LaserScan, '/scan', self.listener_callback, 10)
 
-        # Move this to the other node later, here for testing!
-        self.person_location = self.create_publisher(PointCloud, '/person_locations', 10)
-        self.person_count_tot = self.create_publisher(Int64, '/person_count_total', 10)
+        # Sends the cluster info over to the other
+        self.cluster_pub = self.create_publisher(Float32MultiArray, '/clusters', 10)
+
         self.prevAverages = []
         self.averages = []
         self.walls = []
         self.total = []
 
+    def cluster_to_msg(self, clusters):
+        longest_len = 0
+
+        # Encoding portion of the message
+        # inf will indicate the end of an array
+        for i in range(len(clusters)):
+            if len(clusters[i]) >= longest_len:
+                longest_len = len(clusters[i])
+
+        for i in range(len(clusters)):
+            missing_elements = longest_len - len(clusters[i])
+
+            # List does not have same amount of elements
+            if missing_elements > 0:
+                placeholder = float(100)
+                clusters[i].append(placeholder)
+
+        # Unrolling the array
+        flattened = []
+        for i in range(len(clusters)):
+            for j in range(len(clusters[i])):
+                if type(clusters[i][j]) is tuple:
+                    flattened.append(clusters[i][j][0])
+                    flattened.append(clusters[i][j][1])
+                elif clusters[i][j] == 100.00:
+                    flattened.append(float(100))
+
+        return flattened
+
     def listener_callback(self, msg):
         # Currently just prints out the values it heard
-        self.cluster(msg)
+        clusters = self.cluster(msg)
+
+        # Creating the message
+        msg = Float32MultiArray()
+        msg.data = self.cluster_to_msg(clusters)
+
+        self.cluster_pub.publish(msg)
+
+        # self.get_logger().info('TOTAL: "%s"' % str(clusters))
 
     def polar_to_cartesian(self, msg):
         # Turns the lidar data from polar coordinates to cartesian
@@ -143,13 +178,69 @@ class ScanSubscriber(Node):
             cluster_centers.append((x_mean, y_mean))
         
         return cluster_centers
+
+    def cluster(self, msg):
+        # Finds clusters, and then returns them as a list
+
+        # Sets the LiDAR distance values to array
+        cartesian_array = self.polar_to_cartesian(msg)
+
+        # Now we use DBScan in order to find the clusters of points!
+        clusters = self.dbscan(cartesian_array, 0.8, 3)
+
+        # Now send the clusters in a topic
+
+        #self.get_logger().info('I heard: "%s"' % str(cluster_centers))
+        
+        return clusters
+
+class TopicPublisher(Node):
+    # This node publishes onto the three separate topics
+    def __init__(self):
+        super().__init__('ScanSubscriber')
+        self.cluster_receiver = self.create_subscription(Float32MultiArray, '/clusters', self.listener_callback, 10)
+        self.person_count_curr = self.create_publisher(Int64, '/person_count_current', 10)
+        self.person_count_tot = self.create_publisher(Int64, '/person_count_total', 10)
     
+    def listener_callback(self, msg):
+        self.get_logger().info('Here!')
+        self.get_logger().info('I heard: "%s"' % msg.data)
+
+    def msg_to_clusters(self, msg):
+        clusters = []
+        temp_list = []
+
+        # Removing the 100 and sorting coordinates
+        for val in msg:
+            if val == 100.00:
+                if temp_list:
+                    clusters.append(temp_list)
+                    temp_list = []
+            else:
+                temp_list.append(val)
+
+        if temp_list:
+            clusters.append(temp_list)
+
+        coords = []
+
+        for i in range(len(clusters)):
+            coords_row = []
+            for j in range(0, len(clusters[i]), 2):
+                coords_row.append((clusters[i][j], clusters[i][j + 1]))
+
+            coords.append(coords_row)
+
+        return coords
+
+
     def wall_filter(self, clusters, msg):
         # For testing rn, to see where the clusters are at, making a PointCloud
         pointcloud_msg = PointCloud()
         pointcloud_msg.header = msg.header
         # First iteration, get the walls of the map
         if not self.walls:
+            # Finding the moving average
             for cluster in clusters:
                 xa = sum([point[0] for point in cluster])/len(cluster)
                 ya = sum([point[1] for point in cluster])/len(cluster)
@@ -159,6 +250,7 @@ class ScanSubscriber(Node):
         # Future iterations, for each cluster check if it is within range of a wall, if it is break; if it is not at it to the Point Cloud
         else:
             for cluster in clusters:
+                # Finding the moving average
                 xa = sum([point[0] for point in cluster])/len(cluster)
                 ya = sum([point[1] for point in cluster])/len(cluster)
                 z=0.0
@@ -194,33 +286,8 @@ class ScanSubscriber(Node):
         self.person_location.publish(pointcloud_msg)
         self.person_count_tot.publish(total)
         self.get_logger().info('TOTAL: "%s"' % total)
+
         #self.get_logger().info('Current TOTAL: ' "%s" % len(pointcloud_msg.points))
-
-    def cluster(self, msg):
-        # Finds clusters, and then publish the clusters that are found as PointClouds
-
-        # Sets the LiDAR distance values to array
-        cartesian_array = self.polar_to_cartesian(msg)
-
-        # Now we use DBScan in order to find the clusters of points!
-        clusters = self.dbscan(cartesian_array, 0.8, 3)
-
-        # Finds the center of the clusters
-        # cluster_centers = self.find_cluster_center(clusters)
-
-        # Parses out the walls and deals with PointCloud stuff
-        self.wall_filter(clusters, msg)
-
-        #self.get_logger().info('I heard: "%s"' % str(cluster_centers))
-        
-        return
-
-class TopicPublisher(Node):
-    # This node publishes onto the three separate topics
-    def __init__(self):
-        super().__init__('ScanSubscriber')
-        self.person_count_curr = self.create_publisher(Int64, 'person_count_current', 10)
-        self.person_count_tot = self.create_publisher(Int64, '/person_count_total', 10)
 
 def main(args=None):
     rclpy.init(args=args)
