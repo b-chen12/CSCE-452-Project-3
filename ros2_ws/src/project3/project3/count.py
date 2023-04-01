@@ -16,8 +16,8 @@ class TopicPublisher(Node):
         self.laser_sub = self.create_subscription(LaserScan, '/scan', self.laser_info, 10)
         
         self.person_count_curr = self.create_publisher(Int64, '/person_count_current', 10)
-        self.person_count_tot = self.create_publisher(Int64, '/person_count_total', 10)
-        self.person_location = self.create_publisher(PointCloud, '/person_locations', 10)
+        self.person_count_tot = self.create_publisher(Int64, '/people_count_total', 10)
+        self.person_location = self.create_publisher(PointCloud, '/people_locations', 10)
         self.laser_msg = None
         self.prevAverages = []
         self.averages = []
