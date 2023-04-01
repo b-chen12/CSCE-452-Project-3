@@ -37,6 +37,8 @@ def generate_launch_description():
     # This launches the track node
     node = Node(package = 'project3',
                 executable = 'track')
+    node2 = Node(package='project3',
+                 executable='count')
 
     # This terminates the program once the bag is done playing
     event_handler = OnProcessExit(target_action = play_bag,
@@ -44,7 +46,7 @@ def generate_launch_description():
     
     terminate_at_end = RegisterEventHandler(event_handler)
 
-    ld = LaunchDescription([ bag_in_arg, bag_out_arg, node, play_bag, terminate_at_end,
+    ld = LaunchDescription([ bag_in_arg, bag_out_arg, node, node2, play_bag, terminate_at_end,
                             record_bag ])
 
     return ld
