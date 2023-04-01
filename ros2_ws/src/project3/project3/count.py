@@ -20,17 +20,18 @@ class FilterAndCount(Node):
         self.person_count_tot = self.create_publisher(Int64, '/people_count_total', 10)
         self.person_location = self.create_publisher(PointCloud, '/person_locations', 10)
         self.laser_msg = None
-
+        self.people = {}
         self.walls = []
+        self.id = 0
         self.total = []
         
     
     def listener_callback(self, msg):
-        clusters = self.msg_to_clusters(msg.data) # will be passed into wall_filter
+        clusters = self.msg_to_clusters(msg.data) # will be passed into wall_filter_total_count
 
         # If the laser_msg isn't updated then skip this, try again on the next call
         if self.laser_msg != None:
-            self.wall_filter(clusters, self.laser_msg)
+            self.wall_filter_total_count(clusters, self.laser_msg)
     
     def laser_info(self, msg):
         # This sets the laser_msg property to the LaserScan message
@@ -64,7 +65,7 @@ class FilterAndCount(Node):
         return coords
 
     # Gets distance between two points
-    def distance_formula(self, p1, p2):
+    def euclidean_distance(self, p1, p2):
         
         x1 = p1[0]
         y1 = p1[1]
@@ -156,7 +157,7 @@ class FilterAndCount(Node):
             self.people[i][4] = False
         # Adds in all of the points to the PointCloud message
         total = Int64()
-        total.data = len(self.total)
+        total.data = len(self.people)
         self.person_location.publish(pointcloud_msg)
         self.person_count_tot.publish(total)
 

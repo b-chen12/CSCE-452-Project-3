@@ -9,27 +9,23 @@ from sensor_msgs.msg import PointCloud
 from geometry_msgs.msg import Point32
 from std_msgs.msg import Float32MultiArray
 
-# To install this into ros2 packages, run 'source install/setup.bash'
-
-class ScanSubscriber(Node):
-    # This node subcribes to the /scan topic
+# Node organizes the data and breaks it into clusters
+class OrganizeAndCluster(Node):
+    
     def __init__(self):
-        super().__init__('ScanSubscriber')
+        super().__init__('OrganizeAndCluster')
         self.sub = self.create_subscription(LaserScan, '/scan', self.listener_callback, 10)
 
-        # Sends the cluster info over to the other
+        # Sends cluster infor to other node
         self.cluster_pub = self.create_publisher(Float32MultiArray, '/clusters', 10)
 
-        self.prevAverages = []
-        self.averages = []
         self.walls = []
         self.total = []
 
     def cluster_to_msg(self, clusters):
         longest_len = 0
 
-        # Encoding portion of the message
-        # inf will indicate the end of an array
+        # encoding portion of the message; inf indicates the end of array
         for i in range(len(clusters)):
             if len(clusters[i]) >= longest_len:
                 longest_len = len(clusters[i])
@@ -55,67 +51,61 @@ class ScanSubscriber(Node):
         return flattened
 
     def listener_callback(self, msg):
-        # Currently just prints out the values it heard
         clusters = self.cluster(msg)
 
-        # Creating the message
+        # Create message and publish
         msg_cluster = Float32MultiArray()
         msg_cluster.data = self.cluster_to_msg(clusters)
 
         self.cluster_pub.publish(msg_cluster)
 
-    def polar_to_cartesian(self, msg):
-        # Turns the lidar data from polar coordinates to cartesian
-        val_array = msg.ranges
+    # Convert polar to cartesian
+    def convert_coordinates(self, msg):
+        
+        ranges = msg.ranges
         angle_min = msg.angle_min
         angle_increment = msg.angle_increment
 
-        cartesian_array = [] # array contain x and y values
+        # Cartesian points
+        new_points = []
 
-        for i in range(len(val_array)):
-            angle = angle_min + (i * angle_increment) # angle in polar coordinates (r, theta)
-            x = val_array[i] * math.cos(angle) # x = r * cos(theta)
-            y = val_array[i] * math.sin(angle) # y = r * sin(theta)
+        for i in range(len(ranges)):
+            # x = r * cos(theta); y = r * sin(theta)
+            angle = angle_min + i * angle_increment    
+            x = ranges[i] * math.cos(angle) 
+            y = ranges[i] * math.sin(angle) 
 
-            cartesian_array.append([x,y]) # array [(x,y), (x,y), .. (x,y)], len = 512
+            new_points.append([x,y]) # array [(x,y), (x,y), .. (x,y)], len = 512
 
-        # Removing inf and nan values from the array
-        clean_array = []
+        # Remove garbage values
+        final_points = []
 
-        # Go through other array and remove values with inf or nan
-        for i in range(len(cartesian_array)):
-            if math.isnan(cartesian_array[i][0]) or math.isinf(cartesian_array[i][0]):
-                # If x = abs(inf) or nan, don't add it to the new array
-                continue
-            elif math.isnan(cartesian_array[i][1]) or math.isinf(cartesian_array[i][1]):
-                # If y = abs(inf) or nan, don't add it to the new array
-                continue
-            else:
-                # All good, add to array
-                clean_array.append(cartesian_array[i])
+        # Remove inf or nan
+        for i in range(len(new_points)):
+            if not math.isnan(new_points[i][0]) and not math.isinf(new_points[i][0]) and not math.isnan(new_points[i][1]) and not math.isinf(new_points[i][1]):
+                final_points.append(new_points[i])
 
-        return clean_array
+        return final_points
     
-    def euclidean_distance(self, p1, p2):
-        # Finds the distance between two points
-        x1, y1 = p1[0], p1[1]
-        x2, y2 = p2[0], p2[1]
+    # Distance formula between two points
+    def distance_formula(self, p1, p2):
+        
+        x1 = p1[0]
+        y1 = p1[1]
+        x2 = p2[0]
+        y2 = p2[1]
 
         return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
-
-    def dbscan(self, cartesian_array, epsilon, min_points):
-        # This finds the clusters in our data, and is more resilient to noise
-
-        # Parameter Notes:
-        # epsilon is the radius parameter
-        # min_points is the minimum number of points in a cluster
-        
+    # Finds clusters from cartesian coords; tol is for connecting clusters and size, min_points is the minimum number of points for a cluster
+    def getClusters(self, points, tol, min_points):
+       
         visited = set()
         noise = set()
         clusters = []
 
-        for point in cartesian_array:
+        for point in points:
+            #Already seen
             if tuple(point) in visited:
                 continue
 
@@ -123,14 +113,16 @@ class ScanSubscriber(Node):
 
             neighbors = []
 
-            for neighbor in cartesian_array:
+            for neighbor in points:
                 if tuple(neighbor) in visited:
                     continue
-
-                if self.euclidean_distance(np.array(point), np.array(neighbor)) <= epsilon:
+                
+                # Checking to see if the point is within our tolerance, if it is then it is a neighbor, otherwise leave it
+                if self.distance_formula(np.array(point), np.array(neighbor)) <= tol:
                     neighbors.append(neighbor)
                     visited.add(tuple(neighbor))
 
+            # Too small to be a cluster
             if len(neighbors) < min_points:
                 noise.add(tuple(point))
             else:
@@ -145,25 +137,24 @@ class ScanSubscriber(Node):
                         visited.add(tuple(neighbor))
 
                         new_neighbors = []
-                        for new_neighbor in cartesian_array:
+                        for new_neighbor in points:
                             if tuple(new_neighbor) in visited:
                                 continue
-                            if self.euclidean_distance(np.array(neighbor), np.array(new_neighbor)) <= epsilon:
+                            if self.distance_formula(np.array(neighbor), np.array(new_neighbor)) <= tol:
                                 new_neighbors.append(new_neighbor)
                                 visited.add(tuple(new_neighbor))
 
                         if len(new_neighbors) >= min_points:
                             neighbors.extend(new_neighbors)
-
+                            
                     if tuple(neighbor) not in cluster:
                         cluster.add(tuple(neighbor))
-
                 clusters.append(list(cluster))
 
         return clusters
     
     def find_cluster_center(self, clusters):
-        # This function finds the center of the clusters by averaging the points
+        # Tfinds the center of the clusters by averaging the points
         cluster_centers = []
 
         for cluster in clusters:
@@ -178,17 +169,12 @@ class ScanSubscriber(Node):
         return cluster_centers
 
     def cluster(self, msg):
-        # Finds clusters, and then returns them as a list
+        # Convert from polar to cartesian
+        cartesian_points = self.convert_coordinates(msg)
 
-        # Sets the LiDAR distance values to array
-        cartesian_array = self.polar_to_cartesian(msg)
+        # Get clusters
+        clusters = self.getClusters(cartesian_points, 0.8, 3)
 
-        # Now we use DBScan in order to find the clusters of points!
-        clusters = self.dbscan(cartesian_array, 0.8, 3)
-
-        # Now send the clusters in a topic
-
-        #self.get_logger().info('I heard: "%s"' % str(cluster_centers))
         
         return clusters
 
@@ -196,7 +182,7 @@ class ScanSubscriber(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    scan_sub = ScanSubscriber()
+    scan_sub = OrganizeAndCluster()
 
 
     rclpy.spin(scan_sub)
