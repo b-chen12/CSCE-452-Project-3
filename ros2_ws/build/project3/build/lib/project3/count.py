@@ -15,9 +15,9 @@ class TopicPublisher(Node):
         self.cluster_receiver = self.create_subscription(Float32MultiArray, '/clusters', self.listener_callback, 10)
         self.laser_sub = self.create_subscription(LaserScan, '/scan', self.laser_info, 10)
         
-        self.person_count_curr = self.create_publisher(Int64, '/person_count_current', 10)
+        self.person_count_curr = self.create_publisher(Int64, '/people_count_current', 10)
         self.person_count_tot = self.create_publisher(Int64, '/people_count_total', 10)
-        self.person_location = self.create_publisher(PointCloud, '/people_locations', 10)
+        self.person_location = self.create_publisher(PointCloud, '/person_locations', 10)
         self.laser_msg = None
         self.prevAverages = []
         self.averages = []
@@ -120,6 +120,12 @@ class TopicPublisher(Node):
         total.data = len(self.total)
         self.person_location.publish(pointcloud_msg)
         self.person_count_tot.publish(total)
+
+        self.currentAmount = len(pointcloud_msg.points)
+        currAmount_msg = Int64()
+        currAmount_msg.data = self.currentAmount
+        self.person_count_curr.publish(currAmount_msg)
+
         self.get_logger().info('TOTAL: "%s"' % total)
 
         #self.get_logger().info('Current TOTAL: ' "%s" % len(pointcloud_msg.points))
