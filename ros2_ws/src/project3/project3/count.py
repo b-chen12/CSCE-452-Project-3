@@ -17,17 +17,23 @@ class TopicPublisher(Node):
         
         self.person_count_curr = self.create_publisher(Int64, '/person_count_current', 10)
         self.person_count_tot = self.create_publisher(Int64, '/person_count_total', 10)
-        self.cluster_receiver
+        self.person_location = self.create_publisher(PointCloud, '/person_locations', 10)
+        self.laser_msg = None
+        self.prevAverages = []
+        self.averages = []
+        self.walls = []
+        self.total = []
         
     
     def listener_callback(self, msg):
         clusters = self.msg_to_clusters(msg.data) # will be passed into wall_filter
 
         # Issue is here, msg needs to be from the laser publisher but I'm not sure how to get it
-        # self.wall_filter(clusters, msg)
+        self.wall_filter(clusters, self.laser_msg)
     
     def laser_info(self, msg):
-        return msg
+        # This sets the laser_msg property to the LaserScan message
+        self.laser_msg = msg
 
     def msg_to_clusters(self, msg):
         clusters = []
@@ -56,6 +62,12 @@ class TopicPublisher(Node):
 
         return coords
 
+    def euclidean_distance(self, p1, p2):
+        # Finds the distance between two points
+        x1, y1 = p1[0], p1[1]
+        x2, y2 = p2[0], p2[1]
+
+        return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
     def wall_filter(self, clusters, msg):
         # For testing rn, to see where the clusters are at, making a PointCloud
